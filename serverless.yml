@@ -21,6 +21,19 @@ provider:
         - xray:PutTelemetryRecords
       Resource:
         - "*"
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - { "Fn::GetAtt": [ "DeletedAccountAuditTable", "Arn" ] }
+
+custom:
+  auditTable: DeletedAccountAuditTable
 
 functions:
   deleteAccount:
@@ -30,6 +43,8 @@ functions:
   recordDeletedAccountInfo:
     handler: src/consumer.recordDeletedAccountInfo
     timeout: 60 # seconds (same as the SQS queue visibility timeout)
+    environment:
+      DYNAMODB_TABLE: ${self:custom.auditTable}
     events:
       - sqs:
           arn:
@@ -37,7 +52,6 @@ functions:
               - DeletedAccountEventAuditQueue
               - Arn
           batchSize: 1
-
 
 resources:
   Resources:
@@ -89,3 +103,18 @@ resources:
           Fn::GetAtt:
             - DeletedAccountEventAuditQueue
             - Arn
+    DeletedAccountAuditTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:custom.auditTable}
+        AttributeDefinitions:
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: deletedAt
+            AttributeType: "N"
+        KeySchema:
+          - AttributeName: userId
+            KeyType: HASH
+          - AttributeName: deletedAt
+            KeyType: RANGE
