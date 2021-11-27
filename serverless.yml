@@ -19,6 +19,8 @@ provider:
       Action:
         - xray:PutTraceSegments
         - xray:PutTelemetryRecords
+      Resource:
+        - "*"
 
 resources:
   Resources:
@@ -31,3 +33,5 @@ resources:
 functions:
   deleteAccount:
     handler: src/app.deleteAccount
+    environment:
+      SNS_TOPIC: !Ref DeletedAccountTopic
