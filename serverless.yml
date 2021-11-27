@@ -29,6 +29,49 @@ resources:
       Properties:
         DisplayName: "Topic used for publishing deleted account events"
         TopicName: DeletedAccountTopic
+    DeletedAccountEventAuditQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: DeletedAccountEventAuditQueue
+        MessageRetentionPeriod: 1209600 # 2 weeks (in seconds)
+        VisibilityTimeout: 60
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - DeletedAccountEventAuditQueueDLQ
+              - Arn
+          maxReceiveCount: 5 # Send message to DLQ after 5 failed attempts to consume the message
+    DeletedAccountEventAuditQueueDLQ:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: DeletedAccountEventAuditQueueDLQ
+        MessageRetentionPeriod: 1209600
+    DeletedAccountAuditQueueTopicPolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        Queues:
+          - Ref: DeletedAccountEventAuditQueue
+        PolicyDocument:
+          Id: DeletedAccountAuditQueueTopicPolicy
+          Statement:
+            - Effect: Allow
+              Principal: "*"
+              Resource: "*"
+              Action:
+                - sqs:SendMessage
+              Condition:
+                ArnEquals:
+                  aws:SourceArn: !Ref DeletedAccountTopic
+    DeletedAccountAuditQueueTopicSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        Protocol: sqs
+        RawMessageDelivery: true
+        TopicArn: !Ref DeletedAccountTopic
+        Endpoint:
+          Fn::GetAtt:
+            - DeletedAccountEventAuditQueue
+            - Arn
 
 functions:
   deleteAccount:
