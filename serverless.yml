@@ -22,6 +22,23 @@ provider:
       Resource:
         - "*"
 
+functions:
+  deleteAccount:
+    handler: src/app.deleteAccount
+    environment:
+      SNS_TOPIC: !Ref DeletedAccountTopic
+  recordDeletedAccountInfo:
+    handler: src/consumer.recordDeletedAccountInfo
+    timeout: 60 # seconds (same as the SQS queue visibility timeout)
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - DeletedAccountEventAuditQueue
+              - Arn
+          batchSize: 1
+
+
 resources:
   Resources:
     DeletedAccountTopic:
@@ -72,9 +89,3 @@ resources:
           Fn::GetAtt:
             - DeletedAccountEventAuditQueue
             - Arn
-
-functions:
-  deleteAccount:
-    handler: src/app.deleteAccount
-    environment:
-      SNS_TOPIC: !Ref DeletedAccountTopic
